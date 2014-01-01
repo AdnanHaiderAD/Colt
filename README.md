@@ -34,8 +34,9 @@ Packages hep.aida.*
 
     The Eigenvaluedecomposition class has been modified to speed up reading values from  the given matrix
 
-   The cern.colt.map.OpenintdoubleHashMap has been modified : 
+   The OpenintdoubleHashMap in the map package in colt has been modified : 
     -an overloaded version of the forEachPair method has been added  to apply a given  procedure to sections of the array specified by  the start and end index.
+    
     -the class is equipped to include the lookup tables that memorizes the hash index of each entry in  matrix
 
     In the DoubleMatrix class :
