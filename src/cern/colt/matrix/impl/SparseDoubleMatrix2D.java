@@ -8,6 +8,10 @@ It is provided "as is" without expressed or implied warranty.
 */
 package cern.colt.matrix.impl;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
 import cern.colt.map.AbstractIntDoubleMap;
 import cern.colt.map.OpenIntDoubleHashMap;
 import cern.colt.matrix.DoubleMatrix1D;
@@ -98,7 +102,9 @@ public SparseDoubleMatrix2D(double[][] values) {
  * @throws	IllegalArgumentException if <tt>rows<0 || columns<0 || (double)columns*rows > Integer.MAX_VALUE</tt>.
  */
 public SparseDoubleMatrix2D(int rows, int columns) {
-	this(rows,columns,rows*(columns/1000),0.2,0.5);
+	//this(rows,columns,rows*(columns/10),0.2,0.5);
+	/*author: Adnan: given the knowledge of the number of associations we need to fill, we can reduce the number of rehashes as follows: the following instantiation ensures that for very rehash memory is taken back*/
+	this(rows,columns, (rows*columns),0.2,0.99);
 }
 /**
  * Constructs a matrix with a given number of rows and columns using memory as specified.
@@ -489,9 +495,12 @@ public DoubleMatrix1D zMult(DoubleMatrix1D y, DoubleMatrix1D z, double alpha, do
 	return z;
 }
 public DoubleMatrix2D zMult(DoubleMatrix2D B, DoubleMatrix2D C, final double alpha, double beta, final boolean transposeA, boolean transposeB) {
-	if (!(this.isNoView)) {
+
+	if ((!this.isNoView)) {
+		
 		return super.zMult(B,C,alpha,beta,transposeA,transposeB);
 	}
+
 	if (transposeB) B = B.viewDice();
 	int m = rows;
 	int n = columns;
@@ -519,12 +528,14 @@ public DoubleMatrix2D zMult(DoubleMatrix2D B, DoubleMatrix2D C, final double alp
 	for (int i=m; --i>=0; ) Crows[i] = C.viewRow(i);
 
 	final cern.jet.math.PlusMult fun = cern.jet.math.PlusMult.plusMult(0);
-
+	//if the number of associations > 1000 then parallelise the problem
+    if (size()<=1000){
 	this.elements.forEachPair(
 		new cern.colt.function.IntDoubleProcedure() {
 			public boolean apply(int key, double value) {
 				int i = key/columns;
 				int j = key%columns;
+				
 				fun.multiplicator = value*alpha;
 				if (!transposeA)
 					Crows[i].assign(Brows[j],fun);
@@ -534,7 +545,65 @@ public DoubleMatrix2D zMult(DoubleMatrix2D B, DoubleMatrix2D C, final double alp
 			}
 		}
 	);
-
+    }else
+    {	/*author: Adnan -identify the number of processors that are available*/
+    	System.out.println("optimiser switiched on");
+    	int processors = Runtime.getRuntime().availableProcessors();
+    	ExecutorService executor = Executors.newFixedThreadPool(processors);
+    	int startIndex=0;
+		for (int j=1;j<= processors;j++){
+		//partition the matrix's hash map into  chunks  such that each chunk contains complete rows and feed each chunk to a thread
+		int endIndex = ((j*(int)Math.ceil((float)m/processors))-1)*this.rowStride + (this.columns-1)*this.columnStride;
+			if (endIndex>(m*n)){
+				endIndex=(m*n)-1;
+				executor.execute(new MyRunnable(C,Brows,Crows,startIndex,endIndex,fun,alpha));
+				break;
+				}
+		executor.execute(new MyRunnable(C,Brows,Crows,startIndex,endIndex,fun,alpha));
+		startIndex=endIndex+1;
+		}
+		executor.shutdown();
+		try {
+			executor.awaitTermination(Long.MAX_VALUE,TimeUnit.NANOSECONDS);
+		} catch (InterruptedException e1) {
+		// TODO Auto-generated catch block
+		e1.printStackTrace();
+		}
+    }	
 	return C;
 }
+
+
+/* the runnable interface for multi-threading*/
+private  class MyRunnable implements Runnable{
+	DoubleMatrix2D C;
+	DoubleMatrix1D[] Brows,Crows;
+	int start,finish;
+	cern.jet.math.PlusMult fun;
+     double alpha;
+	 MyRunnable(DoubleMatrix2D C, DoubleMatrix1D[] Brows,DoubleMatrix1D[] Crows,int start, int finish,cern.jet.math.PlusMult func,double alpha){
+		 this.C=C;
+		 this.Brows=Brows;
+		 this.Crows=Crows;
+		 this.start=start;
+		 this.finish=finish;
+		 this.fun=func;
+		 this.alpha=alpha;
+	 }
+	public void run() {
+		SparseDoubleMatrix2D.this.elements.forEachPair(
+				new cern.colt.function.IntDoubleProcedure() {
+					public boolean apply(int key, double value) {
+						int i = key/columns;
+						int j = key%columns;
+						fun.multiplicator = value*alpha;
+						Crows[i].assign(Brows[j],fun);
+						return true;
+					}
+				}, start,finish);}
+	
+	}
+	
+
+
 }

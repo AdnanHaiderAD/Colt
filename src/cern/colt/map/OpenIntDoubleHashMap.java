@@ -8,6 +8,9 @@ It is provided "as is" without expressed or implied warranty.
 */
 package cern.colt.map;
 
+import java.util.Arrays;
+import java.util.HashMap;
+
 import cern.colt.function.IntDoubleProcedure;
 import cern.colt.function.IntProcedure;
 import cern.colt.list.ByteArrayList;
@@ -24,6 +27,11 @@ Overrides many methods for performance reasons only.
 @see	    java.util.HashMap
 */
 public class OpenIntDoubleHashMap extends AbstractIntDoubleMap {
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
 	//public static int hashCollisions = 0;
 	/**
 	 * The hash table keys.
@@ -48,6 +56,11 @@ public class OpenIntDoubleHashMap extends AbstractIntDoubleMap {
 	 * @serial
 	 */
 	protected int freeEntries;
+
+	
+	/**
+	 * Author:Adnan -stores 'memory' locations
+	*/ protected int lookUpTable[]; 
 
 	
 	protected static final byte FREE = 0;
@@ -206,10 +219,12 @@ public void ensureCapacity(int minCapacity) {
  */
 public boolean forEachKey(IntProcedure procedure) {
 	for (int i = table.length ; i-- > 0 ;) {
+		
 		if (state[i]==FULL) if (! procedure.apply(table[i])) return false;
 	}
 	return true;
 }
+
 /**
  * Applies a procedure to each (key,value) pair of the receiver, if any.
  * Iteration order is guaranteed to be <i>identical</i> to the order used by method {@link #forEachKey(IntProcedure)}.
@@ -221,6 +236,15 @@ public boolean forEachPair(final IntDoubleProcedure procedure) {
 	for (int i = table.length ; i-- > 0 ;) {
 		if (state[i]==FULL) if (! procedure.apply(table[i],values[i])) return false;
 	}
+	return true;
+}
+/* author Adnan: overloaded method to apply the procedure to sections of the array including the start and end index*/
+public boolean  forEachPair(final IntDoubleProcedure procedure, int startIndex,int endIndex){
+	for (int i = startIndex;i<=endIndex;++i) {
+	      int index =lookUpTable[i];
+	      //System.out.println("the key is "+i+"the memory is "+ lookUpTable[i]+"the real location is "+ indexOfKey(i)  );
+	      if (! procedure.apply(i,(index!=(-1)) ? values[index]:0))  return false;
+	   }
 	return true;
 }
 /**
@@ -235,6 +259,7 @@ public double get(int key) {
 	if (i<0) return 0; //not contained
 	return values[i];
 }
+
 /**
  * @param key the key to be added to the receiver.
  * @return the index where the key would need to be inserted, if it is not already contained.
@@ -340,6 +365,7 @@ public int keyOf(double value) {
 	if (i<0) return Integer.MIN_VALUE;
 	return table[i];
 }
+
 /**
  * Fills all keys contained in the receiver into the specified list.
  * Fills the list, starting at index 0.
@@ -410,25 +436,30 @@ public boolean put(int key, double value) {
 		this.values[i]=value;
 		return false;
 	}
-
+    
 	if (this.distinct > this.highWaterMark) {
 		int newCapacity = chooseGrowCapacity(this.distinct+1,this.minLoadFactor, this.maxLoadFactor);
 		/*
 		System.out.print("grow rehashing ");
 		System.out.println("at distinct="+distinct+", capacity="+table.length+" to newCapacity="+newCapacity+" ...");
 		*/
+		
 		rehash(newCapacity);
 		return put(key, value);
 	}
 
 	this.table[i]=key;
+	//Author:Adnan putting the location in the lookup table
+	
+	lookUpTable[key]=i;
 	this.values[i]=value;
 	if (this.state[i]==FREE) this.freeEntries--;
 	this.state[i]=FULL;
 	this.distinct++;
-
+	
 	if (this.freeEntries < 1) { //delta
 		int newCapacity = chooseGrowCapacity(this.distinct+1,this.minLoadFactor, this.maxLoadFactor);
+		
 		rehash(newCapacity);
 	}
 	
@@ -441,6 +472,7 @@ public boolean put(int key, double value) {
  * number of keys in the receiver exceeds the high water mark or falls below the low water mark.
  */
 protected void rehash(int newCapacity) {
+	System.out.println("rehash has occured");
 	int oldCapacity = table.length;
 	//if (oldCapacity == newCapacity) return;
 
@@ -452,6 +484,7 @@ protected void rehash(int newCapacity) {
 	byte oldState[] = state;
 
 	int newTable[] = new int[newCapacity];
+	
 	double newValues[] = new double[newCapacity];
 	byte newState[] = new byte[newCapacity];
 
@@ -462,6 +495,8 @@ protected void rehash(int newCapacity) {
 	this.values = newValues;
 	this.state = newState;
 	this.freeEntries = newCapacity-this.distinct; // delta
+	//re-initialising the index
+	Arrays.fill(lookUpTable, -1);
 	
 	for (int i = oldCapacity ; i-- > 0 ;) {
 		if (oldState[i]==FULL) {			
@@ -470,6 +505,8 @@ protected void rehash(int newCapacity) {
 			newTable[index]=element;
 			newValues[index]=oldValues[i];
 			newState[index]=FULL;
+			//update the memory locations
+			lookUpTable[element]=index;
 			
 		}
 	}
@@ -494,8 +531,9 @@ public boolean removeKey(int key) {
 	//if (debug) this.table[i]=Integer.MAX_VALUE; // delta
 	//if (debug) this.values[i]=Double.NaN; // delta
 	this.distinct--;
-
+	
 	if (this.distinct < this.lowWaterMark) {
+		System.out.println("HELLO");
 		int newCapacity = chooseShrinkCapacity(this.distinct,this.minLoadFactor, this.maxLoadFactor);
 		/*
 		if (table.length != newCapacity) {
@@ -503,6 +541,7 @@ public boolean removeKey(int key) {
 			System.out.println("at distinct="+distinct+", capacity="+table.length+" to newCapacity="+newCapacity+" ...");
 		}
 		*/
+	//	System.out.println("rehashing3");
 		rehash(newCapacity);
 	}
 	
@@ -519,6 +558,9 @@ public boolean removeKey(int key) {
 protected void setUp(int initialCapacity, double minLoadFactor, double maxLoadFactor) {
 	int capacity = initialCapacity;
 	super.setUp(capacity, minLoadFactor, maxLoadFactor);
+	//Author:Adnan initialise the lookup table//
+	lookUpTable=  new int[capacity];
+	Arrays.fill(lookUpTable, -1);
 	capacity = nextPrime(capacity);
 	if (capacity==0) capacity=1; // open addressing needs at least one FREE slot at any time.
 	
@@ -551,6 +593,7 @@ public void trimToSize() {
 	// so that even rehashing the table can take very long
 	int newCapacity = nextPrime((int)(1 + 1.2*size()));
 	if (table.length > newCapacity) {
+		//System.out.println("rehashing4");
 		rehash(newCapacity);
 	}
 }

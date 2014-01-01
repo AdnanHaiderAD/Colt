@@ -82,11 +82,17 @@ public EigenvalueDecomposition(DoubleMatrix2D A) {
 	
 	issymmetric = Property.DEFAULT.isSymmetric(A);
 	
+	/* this can be improved :Adnan*/
 	if (issymmetric) {
-		for (int i = 0; i < n; i++) {
+		/*for (int i = 0; i < n; i++) {
 			for (int j = 0; j < n; j++) {
 				V[i][j] = A.getQuick(i,j);
 			}
+		}*/
+		for(int key=0;key<(n*n);key++){
+			int i = key/n;
+			int j= key%n;
+			V[i][j]=A.getQuick(i, j);
 		}
 	
 		// Tridiagonalize.
@@ -147,6 +153,9 @@ public DoubleMatrix2D getD() {
 		}
 	}
 	return DoubleFactory2D.dense.make(D);
+}
+public double[] getSingularvalues(){
+	  return d;
 }
 /**
 Returns the imaginary parts of the eigenvalues.
@@ -974,5 +983,6 @@ private void tred2 () {
 	  }
 	  V[n-1][n-1] = 1.0;
 	  e[0] = 0.0;
-   }   
+   }
+  
 }

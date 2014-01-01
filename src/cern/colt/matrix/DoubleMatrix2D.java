@@ -8,6 +8,13 @@ It is provided "as is" without expressed or implied warranty.
 */
 package cern.colt.matrix;
 
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+
 import cern.colt.list.DoubleArrayList;
 import cern.colt.list.IntArrayList;
 import cern.colt.matrix.impl.AbstractMatrix2D;
@@ -179,8 +186,18 @@ public DoubleMatrix2D assign(cern.colt.function.DoubleFunction function) {
 	}
 	return this;
 }
-/**
- * Replaces all cell values of the receiver with the values of another matrix.
+/*Author:Adnan : optimised version assign(Function f)
+*/
+public DoubleMatrix2D assignOptimised(cern.colt.function.DoubleFunction function){
+for (int key=0;key<(rows*columns);key++){
+	int row =key/columns;
+	int column=key%columns;
+	setQuick(row,column, function.apply(getQuick(row,column)));
+	}
+
+return this;
+}
+/* Replaces all cell values of the receiver with the values of another matrix.
  * Both matrices must have the same number of rows and columns.
  * If both matrices share the same cells (as is the case if they are views derived from the same matrix) and intersect in an ambiguous way, then replaces <i>as if</i> using an intermediate auxiliary deep copy of <tt>other</tt>.
  *
@@ -956,6 +973,7 @@ public DoubleMatrix1D zMult(DoubleMatrix1D y, DoubleMatrix1D z, double alpha, do
  * Equivalent to <tt>A.zMult(B,C,1,0,false,false)</tt>.
  */
 public DoubleMatrix2D zMult(DoubleMatrix2D B, DoubleMatrix2D C) {
+	
 	return zMult(B,C,1, (C==null ? 1 : 0), false,false);
 }
 /**
@@ -981,23 +999,40 @@ public DoubleMatrix2D zMult(DoubleMatrix2D B, DoubleMatrix2D C, double alpha, do
 	int m = rows;
 	int n = columns;
 	int p = B.columns;
-
-	if (C==null) C = new DenseDoubleMatrix2D(m,p);
+    if (C==null) C = new DenseDoubleMatrix2D(m,p);
 	if (B.rows != n)
 		throw new IllegalArgumentException("Matrix2D inner dimensions must agree:"+toStringShort()+", "+B.toStringShort());
 	if (C.rows != m || C.columns != p)
 		throw new IllegalArgumentException("Incompatibel result matrix: "+toStringShort()+", "+B.toStringShort()+", "+C.toStringShort());
 	if (this == C || B == C)
 		throw new IllegalArgumentException("Matrices must not be identical");
-		
+	/* Author : Adnan -this part when applied is  to be optimised for parallelisation*/
+	int processors = Runtime.getRuntime().availableProcessors();
+	ExecutorService executor = Executors.newFixedThreadPool(processors);
 	for (int j = p; --j >= 0; ) {
 		for (int i = m; --i >= 0; ) {
-			double s = 0;
-			for (int k = n; --k >= 0; ) {
-				s += getQuick(i,k) * B.getQuick(k,j);
-			}
-			C.setQuick(i,j,alpha*s + beta*C.getQuick(i,j));
+			executor.execute(new MyCallable(i,j,n,this,B,C,alpha,beta));
 		}
+	}
+	//executor.
+	/*for (int j = p; --j >= 0; ) {
+		for (int i = m; --i >= 0; ) {
+			 double s = 0;
+		     for (int k = n; --k >= 0; ) {
+		    	 s+= getQuick(i, k)+B.getQuick(k, j);  
+		     
+		     }
+		     C.setQuick(i,j,alpha*s + beta*C.getQuick(i,j));
+		}
+	}
+	*/
+	executor.shutdown();
+	try {
+		boolean state=executor.awaitTermination(Long.MAX_VALUE,TimeUnit.NANOSECONDS);
+		//System.out.println("CompleteStage :"+state);
+	} catch (InterruptedException e) {
+		// TODO Auto-generated catch block
+		e.printStackTrace();
 	}
 	return C;
 }
@@ -1009,4 +1044,97 @@ public double zSum() {
 	if (size()==0) return 0;
 	return aggregate(cern.jet.math.Functions.plus,cern.jet.math.Functions.identity);
 }
+
+/** Author : Adnan: fast way to compute the product of matrix with its transpose when rows<< columns*/
+public  DoubleMatrix2D zMultTranspose(){
+	int m = rows;
+	DenseDoubleMatrix2D  C = new DenseDoubleMatrix2D(m,m);
+	// cache views	
+	final DenseDoubleMatrix1D[] Arows = new DenseDoubleMatrix1D[m];
+	for (int i=m; --i>=0; ) Arows[i] = new DenseDoubleMatrix1D(viewRow(i).toArray());
+	if (m*m <=10){
+		for (int i=0;i<m;i++){
+			for(int j=0;j<m;j++){
+				C.setQuick(i, j, Arows[i].zDotProduct(Arows[j]));
+			}
+		}
+	}
+	else{
+		System.out.println("optimiser is switched on");
+		int processors = Runtime.getRuntime().availableProcessors();
+		ExecutorService executor = Executors.newFixedThreadPool(processors);
+		int rowPerProc = (int)Math.ceil((float)(m)/processors);
+		int startIndex=0;
+		for(int pro=1;pro<=processors;pro++){
+			int endIndex = startIndex+ rowPerProc;
+			if(endIndex>m)endIndex=m;
+			executor.execute(new TransposeRunnable(startIndex, endIndex, C, Arows));
+			startIndex= endIndex;
+		}
+		executor.shutdown();
+		try {
+			executor.awaitTermination(Long.MAX_VALUE,TimeUnit.NANOSECONDS);
+			//System.out.println("CompleteStage :"+state);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	return C;
+};
+private class TransposeRunnable implements Runnable{
+	int startIndex;
+	int endIndex;
+	DoubleMatrix2D C;
+	DoubleMatrix1D[] Arows;
+	
+	public TransposeRunnable(int startIndex, int endIndex,DoubleMatrix2D C, DoubleMatrix1D[] Arows) {
+		this.startIndex=startIndex;
+		this.endIndex=endIndex;
+		this.C=C;
+		this.Arows=Arows;
+	}
+	@Override
+	public void run() {
+		for (int i=startIndex;i<endIndex;i++){
+			for(int j=0;j<Arows.length;j++){
+				C.setQuick(i, j, Arows[i].zDotProduct(Arows[j]));
+			}
+		}
+	}
+	
+}
+
+/*the runnable object used by each thread to execute a task*/
+ class MyCallable implements Runnable{
+	 int i,j,n;
+     DoubleMatrix2D A,B,C;
+     double alpha,beta; 
+	 MyCallable (int i,int j , int n, DoubleMatrix2D A, DoubleMatrix2D B, DoubleMatrix2D C,double alpha, double beta){
+		 this.i=i;
+		 this.j=j;
+		 this.n=n;
+		 this.A=A;
+		 this.B=B;
+		 this.C=C;
+		 this.alpha=alpha;
+		 this.beta = beta;
+	 }
+
+	@Override
+	public void run() {
+		 double s=0;
+		 for (int k = n; --k >= 0; ) {
+			
+	    	 s+= A.getQuick(i, k)*B.getQuick(k, j);  
+	    	
+	     
+	     }
+		
+	     C.setQuick(i,j,alpha*s + beta*C.getQuick(i,j));
+		// TODO Auto-generated method stub
+		
+	}
+ }
 }
