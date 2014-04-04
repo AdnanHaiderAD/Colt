@@ -1052,7 +1052,7 @@ public  DoubleMatrix2D zMultTranspose(){
 	// cache views	
 	final DenseDoubleMatrix1D[] Arows = new DenseDoubleMatrix1D[m];
 	for (int i=m; --i>=0; ) Arows[i] = new DenseDoubleMatrix1D(viewRow(i).toArray());
-	if (m*m <=10){
+	if (m*m <=100){
 		for (int i=0;i<m;i++){
 			for(int j=0;j<m;j++){
 				C.setQuick(i, j, Arows[i].zDotProduct(Arows[j]));

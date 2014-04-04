@@ -838,4 +838,8 @@ public DoubleMatrix2D sample(DoubleMatrix2D matrix, double value, double nonZero
 	
 	return matrix;
 }
+public DoubleMatrix2D augment(DoubleMatrix1D[] list) {
+	// TODO Auto-generated method stub
+	return null;
+}
 }
