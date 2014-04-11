@@ -28,18 +28,10 @@ Packages hep.aida.*
     this license are provided with no warranty.
  
  
-CHANGES ADDED: 
+CHANGES ADDED By Adnan Haider: 
     
-    The following classes have been added to the Colt library by Adnan Haider
-    
-    EigenDecompositionSparse: This implements the Arnoldi Algorithm followed by the implicit Q algorithm to extract the 
-    eigenvectors corresponding with the largest eigenvalues within few iterations while approximating the eigenvectors 
-    associated with small eigenvalues. It compute time is much longer than the standard Eigendecomposition class and is 
+    EigenDecompositionSparse Class: This implements the Arnoldi Algorithm followed by the implicit Q algorithm to extract     the eigenvectors corresponding with the largest eigenvalues within few iterations while approximating the eigenvectors     associated with small eigenvalues. It compute time is much longer than the standard Eigendecomposition class and is 
     ideal for BIG matrices. 
-
-
-    The following classes in cern.colt package has been modified by Adnan Haider to improve the performance of large 
-    matrix computations.
 
     In the DoubleMatrix2D class:
     -zmultTranspose() has been added to compute the product of a double matrix with its transpose efficiently
