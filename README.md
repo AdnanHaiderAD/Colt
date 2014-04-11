@@ -26,6 +26,9 @@ Packages hep.aida.*
     is granted under the terms of the LGPL License, with the exception that any usage related to military
     applications is expressly forbidden. The software and documentation made available under the terms of
     this license are provided with no warranty.
+ 
+ 
+CHANGES ADDED: 
     
     The following classes have been added to the Colt library by Adnan Haider
     
