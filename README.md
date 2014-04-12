@@ -30,7 +30,7 @@ Packages hep.aida.*
  
 CHANGES ADDED By Adnan Haider: 
     
-    EigenDecompositionSparse Class: This implements the Arnoldi Algorithm followed by the implicit Q algorithm to extract     the eigenvectors corresponding with the largest eigenvalues within few iterations while approximating the eigenvectors     associated with small eigenvalues. It compute time is much longer than the standard Eigendecomposition class and is 
+    EigenDecompositionSparse Class: This implements the Arnoldi Algorithm followed by the implicit Q algorithm to extract     the eigenvectors corresponding with the largest eigenvalues within few iterations while only approximating the            eigenvectors     associated with small eigenvalues. It compute time is much lower than the standard               		    Eigendecomposition class and is 
     ideal for BIG matrices. 
 
     In the DoubleMatrix2D class:
