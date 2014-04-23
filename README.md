@@ -26,8 +26,12 @@ Packages hep.aida.*
     is granted under the terms of the LGPL License, with the exception that any usage related to military
     applications is expressly forbidden. The software and documentation made available under the terms of
     this license are provided with no warranty.
-
-    The following classes in cern.colt package has been modified by Adnan Haider to improve the performance of large matrix computations.
+ 
+ 
+CHANGES ADDED By Adnan Haider: 
+    
+    EigenDecompositionSparse Class: This implements the Arnoldi Algorithm followed by the implicit Q algorithm to extract     the eigenvectors corresponding with the largest eigenvalues within few iterations while only approximating the            eigenvectors     associated with small eigenvalues. It compute time is much lower than the standard               		    Eigendecomposition class and is 
+    ideal for BIG matrices. 
 
     In the DoubleMatrix2D class:
     -zmultTranspose() has been added to compute the product of a double matrix with its transpose efficiently
@@ -35,7 +39,8 @@ Packages hep.aida.*
     The Eigenvaluedecomposition class has been modified to speed up reading values from  the given matrix
 
     The OpenintdoubleHashMap in the map package in colt has been modified : 
-    -an overloaded version of the forEachPair method has been added  to apply a given  procedure to sections of the array specified by  the start and end index.
+    -an overloaded version of the forEachPair method has been added  to apply a given  procedure to sections of the array 
+    specified by  the start and end index.
 
     -the class is equipped to include the lookup tables that memorizes the hash index of each entry in  matrix
 
@@ -43,6 +48,7 @@ Packages hep.aida.*
     - modifications has been made to  the assign(function f) to improve  speed of computation.
 
     In the SparseDoubleMatrix2D class:
-    the zmult function has been modified to make use of available processors in a machine when computing the product of two matrices.
+    the zmult function has been modified to make use of available processors in a machine when computing the product of 
+    two matrices.
 
 
