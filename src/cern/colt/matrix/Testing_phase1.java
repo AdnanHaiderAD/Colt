@@ -145,10 +145,13 @@ public class Testing_phase1 {
 	   
 	}
 	public static void main(String[] args) throws InterruptedException, IOException{
-		/*
+		
 		DoubleFactory2D factory = DoubleFactory2D.dense;
-		float[] p= new float []{ 1,0,1,0,2,0,1,0,1,0,1,0,0,1,1,0,2,0,4,1,2};
-		float [] q = new float[]{1,0,0,3,1,2,3};
+		double[] p= new double []{ 1,0,1,1,0,2,0,1,0};
+		  DoubleMatrix2D m =factory.make(p,3);
+		  System.out.println(m);
+		  System.out.println(cern.colt.matrix.doublealgo.Statistic.angulardistance(m));
+		/*float [] q = new float[]{1,0,0,3,1,2,3};
 		DoubleMatrix2D matrix =factory.make(p,3);
 		DoubleMatrix1D q1 = new DenseDoubleMatrix1D(q);
 		System.out.println(q1.assign(Mult.div(4)));
@@ -177,33 +180,35 @@ public class Testing_phase1 {
 	    System.out.println(Arrays.toString(s));
 	    
 		
-		
+		*/
 		
 		/* creating a big sparse matrix while minimising space*/
-		
-		DenseDoubleMatrix2D matrix=(DenseDoubleMatrix2D) createRandomMatrixTest("dense", 1000, 100);
+		System.out.println(cern.colt.matrix.doublealgo.Statistic.roundToSignificantFigures(0.23456789000023, 5));
+		DenseDoubleMatrix2D matrix=(DenseDoubleMatrix2D) createRandomMatrixTest("dense", 10000, 500);
 		DenseDoubleMatrix2D matT =(DenseDoubleMatrix2D) matrix.zMultTranspose();
-		long time =  System.currentTimeMillis();
-		EigenvalueDecomposition eigen=new EigenvalueDecomposition(matT);
-		
-		double[] s= eigen.getRealEigenvalues().toArray();
-		System.out.println("time taken is "+ (System.currentTimeMillis()-time));
-		time =System.currentTimeMillis();
-		
+		System.out.println("transpose computation completed");
         
+		long time2 =System.currentTimeMillis();
         EigenDecompositionSparse eig = new EigenDecompositionSparse(matT);
-        eig.getV();
-        System.out.println("time taken is "+(System.currentTimeMillis()-time));
-        //System.out.println(eigen.getV());
-        //System.out.println(eig.getV());
+        DenseDoubleMatrix2D V=eig.getV();
+        System.out.println("time taken by new method is "+(System.currentTimeMillis()-time2));
+        double[] s= java.util.Arrays.copyOfRange(eig.getSingularValues(),0,100);
+        System.out.println("finished"+(Arrays.toString(s)));
+		
+        //saving the ritz vectors
+        FileOutputStream out = new FileOutputStream(new File("/home/adnan/workspace_test/AdnanColt/outtestfiles/V2.ser"));
+        ObjectOutputStream outStream = new ObjectOutputStream(out);
+        outStream.writeObject(V);
+        outStream.close();
+        out.close();
         
-        System.out.println(Arrays.toString(s));
-        s =(double[]) eig.getSingularValues();
+        long time =  System.currentTimeMillis();
+		EigenvalueDecomposition eigen=new EigenvalueDecomposition(matT);
+		time= (System.currentTimeMillis()-time);
+		System.out.println("time taken by old method is "+time);
+		s= java.util.Arrays.copyOfRange(eigen.getRealEigenvalues().toArray(), 9900, 10000);
+	    System.out.println(Arrays.toString(s));
        
-        
-        System.out.println(Arrays.toString(s));
-       
-        
         
 		
 		

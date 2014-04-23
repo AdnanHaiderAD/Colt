@@ -8,7 +8,6 @@ It is provided "as is" without expressed or implied warranty.
 */
 package cern.colt.matrix.doublealgo;
 
-import hep.aida.bin.DynamicBin1D;
 import cern.colt.function.DoubleDoubleFunction;
 import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleFactory2D;
@@ -145,7 +144,7 @@ protected Statistic() {}
  * @see hep.aida.bin.BinFunction1D
  * @see hep.aida.bin.BinFunctions1D
  */
-public static DoubleMatrix2D aggregate(DoubleMatrix2D matrix, hep.aida.bin.BinFunction1D[] aggr, DoubleMatrix2D result) {
+/*public static DoubleMatrix2D aggregate(DoubleMatrix2D matrix, hep.aida.bin.BinFunction1D[] aggr, DoubleMatrix2D result) {
 	DynamicBin1D bin = new DynamicBin1D();
 	double[] elements = new double[matrix.rows()];
 	cern.colt.list.DoubleArrayList values = new cern.colt.list.DoubleArrayList(elements);
@@ -158,7 +157,7 @@ public static DoubleMatrix2D aggregate(DoubleMatrix2D matrix, hep.aida.bin.BinFu
 		}
 	}
 	return result;
-}
+}*/
 /**
 Fills all cell values of the given vector into a bin from which statistics measures can be retrieved efficiently.
 Cells values are copied.
@@ -212,11 +211,11 @@ Distinct elements & frequencies not printed (too many).
 @param vector the vector to analyze.
 @return a bin holding the statistics measures of the vector.
 */
-public static DynamicBin1D bin(DoubleMatrix1D vector) {
+/*public static DynamicBin1D bin(DoubleMatrix1D vector) {
 	DynamicBin1D bin = new DynamicBin1D();
 	bin.addAllOf(DoubleFactory1D.dense.toList(vector));
 	return bin;
-}
+}*/
 /**
  * Modifies the given covariance matrix to be a correlation matrix (in-place).
  * The correlation matrix is a square, symmetric matrix consisting of nothing but correlation coefficients.
@@ -489,6 +488,40 @@ public static DoubleMatrix2D distance(DoubleMatrix2D matrix, VectorVectorFunctio
 		}
 	}
 	return distance;
+}
+
+/* added by Adnan: ensures identical docs get 0 scores even if their eigen vectors are slight different.*/
+public static DoubleMatrix2D angulardistance(DoubleMatrix2D matrix) {
+    int rows = matrix.rows();
+    DoubleMatrix2D distance = new cern.colt.matrix.impl.DenseDoubleMatrix2D(rows,rows);
+    // cache views
+    DoubleMatrix1D[] docs = new DoubleMatrix1D[rows];
+    for (int i=rows; --i >= 0; ) {
+        docs[i] = matrix.viewRow(i);
+        distance.set(i, i, 0.0);
+    }
+     // work out all permutations
+    for (int i=rows; --i >= 0; ) {
+        for (int j=i; --j >= 0; ) {
+          double dotprod  = docs[i].zDotProduct(docs[j]);
+          double i_mod = Math.sqrt(docs[i].zDotProduct(docs[i]));
+          double j_mod = Math.sqrt(docs[j].zDotProduct(docs[j]));;
+          double d = Math.acos(dotprod/(i_mod*j_mod))/Math.PI;
+          d = roundToSignificantFigures(d,4);
+          distance.set(i, j, d);
+          distance.set(j,i,d);
+        }   
+    }
+    return distance;
+}
+/* added by Adnan*/
+public static double roundToSignificantFigures(double d, int i) {
+  if (d==0) return d;
+  double num = Math.ceil(Math.log10(d<0?-d:d));
+  int power = i -(int)num;
+  double magnitude =Math.pow(10, power);
+  long shifted =Math.round(d*magnitude);
+    return shifted/magnitude;
 }
 /**
  * Fills all cells of the given vector into the given histogram.

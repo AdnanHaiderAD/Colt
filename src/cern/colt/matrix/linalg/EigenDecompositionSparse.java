@@ -3,11 +3,15 @@ package cern.colt.matrix.linalg;
 import java.io.IOException;
 import java.util.Arrays;
 
+import cern.colt.function.DoubleFunction;
 import cern.colt.matrix.DoubleFactory2D;
 import cern.colt.matrix.impl.DenseDoubleMatrix1D;
 import cern.colt.matrix.impl.DenseDoubleMatrix2D;
 import cern.jet.math.Mult;
 
+/* A memory efficient way and computational fast way of extracting a doc-topic matrix from a doc-term matrix;
+ * The method takes a rectangular matrix A(m by n) and extracts the eigenvectors of AA'
+ * */
 public class EigenDecompositionSparse implements java.io.Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -22,18 +26,14 @@ public class EigenDecompositionSparse implements java.io.Serializable {
     private int iter;
     
     public EigenDecompositionSparse(DenseDoubleMatrix2D A) throws IOException{
-         Property.DEFAULT.checkSquare(A);
          
          n= A.columns();
-         iter = (n>500)? 500 :n;
+         iter = (n>250)? 250 :n;
          V = new double[iter][iter];
          for(int i =0;i<iter;i++)V[i][i]=1;
          d = new double[iter];
          e = new double [iter];
          Q = new DenseDoubleMatrix2D(n,iter);
-        
-         if(!Property.DEFAULT.isSymmetric(A)) throw new IOException("Error the input matrix must be symmetric");
-         
         /* compute H where H is hessenbergh and H = Q'AQ*/
          ArnoldiAlg(A);
          /* implicit QL decomposition using combination of jacobian and given rotations*/
@@ -48,23 +48,14 @@ public class EigenDecompositionSparse implements java.io.Serializable {
         q.assign(1.0);
         double norm_q =(float)Math.sqrt(q.zDotProduct(q));
         q =(DenseDoubleMatrix1D) q.assign(Mult.div(norm_q));
-        System.out.println("check1");
-        System.out.println(q);
-        
-        DenseDoubleMatrix1D r =  (DenseDoubleMatrix1D) A.zMult(q, null);
+       
+        //breaking the computation of AA'q to A'q followed by A (A'q)
+        DenseDoubleMatrix1D r =  (DenseDoubleMatrix1D) A.viewDice().zMult(q, null);
+        r = (DenseDoubleMatrix1D) A.zMult(r, null);
         double aj =(float) q.zDotProduct(r);
-        System.out.println("check2");
-        System.out.println(r);
-        System.out.println(aj);
-        
-       
-        r = (DenseDoubleMatrix1D) r.assign(q.copy().assign(Mult.mult(aj)), cern.jet.math.PlusMult.minusMult(1.0));
+         r = (DenseDoubleMatrix1D) r.assign(q.copy().assign(Mult.mult(aj)), cern.jet.math.PlusMult.minusMult(1.0));
         double bj = (float)Math.sqrt(r.zDotProduct(r));
-        System.out.println("check3");
-        System.out.println(bj);
-        System.out.println(r);
         
-       
         d[0]=aj;
         e[0]=bj;
         Q.viewColumn(0).assign(q);
@@ -73,35 +64,24 @@ public class EigenDecompositionSparse implements java.io.Serializable {
             DenseDoubleMatrix1D v  =q;
             q= (DenseDoubleMatrix1D) r.assign(Mult.div(bj));
             Q.viewColumn(i).assign(q);
-            System.out.println();
-            System.out.println("check4");
-            System.out.println("q" +(i-1) +" "+v);
-            System.out.println("q" + (i) + " " +q);
-           
-            System.out.println("check5");
-            r= (DenseDoubleMatrix1D) A.zMult(q, null);
-            System.out.println("r = A*q"+i+" "+r);
-            System.out.println(bj);
-            System.out.println(v.copy().assign(Mult.mult(bj)));
-            System.out.println("check 6");
+            /* computing Aqi- bjv followed by Aqi-ajqi*/
+            
+            r= (DenseDoubleMatrix1D) A.viewDice().zMult(q, null);
+            r = (DenseDoubleMatrix1D) A.zMult(r, null);
+            
             r = (DenseDoubleMatrix1D) r.assign(v.copy().assign(Mult.mult(bj)), cern.jet.math.PlusMult.minusMult(1.0));
-            System.out.println("Aq"+i+ "-bjqi-1 "+ r);
-            System.out.println();
             aj = q.zDotProduct(r);
-            System.out.println(aj);
             d[i]=aj;
            
             r = (DenseDoubleMatrix1D) r.assign(q.copy().assign(Mult.mult(aj)), cern.jet.math.PlusMult.minusMult(1.0));
-            System.out.println("Aq"+i+ "-ajqi "+ r);
             /* re-orthogonalisation*/
             if(i>1){
-                DenseDoubleMatrix2D ortho = (DenseDoubleMatrix2D)Q.zMultTranspose();
-                DenseDoubleMatrix1D r_p = (DenseDoubleMatrix1D) ortho.zMult(r, null);
+                DenseDoubleMatrix1D r_p = (DenseDoubleMatrix1D) Q.viewDice().zMult(r, null);
+                r_p= (DenseDoubleMatrix1D) Q.zMult(r_p, null);
                 r =(DenseDoubleMatrix1D) r.copy().assign(r_p,cern.jet.math.PlusMult.minusMult(1.0));
             }
             
             bj = (float)Math.sqrt(r.zDotProduct(r));
-            System.out.println(bj);
             if (i!=(iter-1))e[i]=bj;
             if ((double)(int)(bj*100000000)==0) break;
           }
@@ -115,7 +95,7 @@ public class EigenDecompositionSparse implements java.io.Serializable {
         //  Fortran subroutine in EISPACK.
        
           n=iter;
-          System.out.println(Arrays.toString(e));
+          
           //e[iter-1] = (float) 0.0;
        
           double f = 0;
@@ -229,8 +209,6 @@ public class EigenDecompositionSparse implements java.io.Serializable {
        } 
     
     public DenseDoubleMatrix2D getV(){
-           System.out.println(Q);
-           
            return (DenseDoubleMatrix2D) Q.zMult(new DenseDoubleMatrix2D(V), null);
     }
     public double[] getSingularValues(){
@@ -248,6 +226,8 @@ public class EigenDecompositionSparse implements java.io.Serializable {
     	
     	EigenDecompositionSparse eigen;
 		try {
+		    p = new double[]{0,0,0,0,0, 0,1,0,0,0, 0,0,Math.sqrt(2),0,0, 0,0,0,Math.sqrt(3),0, 0,0,0,0,Math.sqrt(9999)};
+		    matrix  = (DenseDoubleMatrix2D) fact.make(p,5);
 			eigen = new EigenDecompositionSparse(matrix);
 			System.out.println(Arrays.toString(eigen.getSingularValues()));
 			System.out.println(eigen.getV());
@@ -256,8 +236,7 @@ public class EigenDecompositionSparse implements java.io.Serializable {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		 double  d =0.000000001;
-		 System.out.println((double)(int)(d*100000000));
+		
 
     	
     }

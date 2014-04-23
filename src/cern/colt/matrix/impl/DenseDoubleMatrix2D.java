@@ -646,12 +646,18 @@ public DoubleMatrix1D zMult(DoubleMatrix1D y, DoubleMatrix1D z, double alpha, do
 		// loop unrolled
 		int i = indexA - As;
 		int j = indexY - ys;	
-		for (int k=cols%4; --k >= 0; ) {
+		for (int k=cols%10; --k >= 0; ) {
 			sum += AElems[i += As] * yElems[j += ys];
 		}
-		for (int k=cols/4; --k >= 0; ) { 
+		for (int k=cols/10; --k >= 0; ) { 
 			sum += AElems[i += As] * yElems[j += ys] + 
 				AElems[i += As] * yElems[j += ys] +
+				AElems[i += As] * yElems[j += ys] +
+				AElems[i += As] * yElems[j += ys]+
+				AElems[i += As] * yElems[j += ys] + 
+				AElems[i += As] * yElems[j += ys] +
+				AElems[i += As] * yElems[j += ys] +
+				AElems[i += As] * yElems[j += ys]+
 				AElems[i += As] * yElems[j += ys] +
 				AElems[i += As] * yElems[j += ys];
 		}		
